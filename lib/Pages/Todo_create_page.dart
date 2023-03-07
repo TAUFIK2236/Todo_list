@@ -1,27 +1,34 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sizer/sizer.dart';
+import 'package:todo_app/Pages/login_in_page.dart';
 import 'package:todo_app/api/apiService.dart';
-import 'dart:convert';
 import 'package:todo_app/Pages/ModelClasses/Get_Todo_List.dart' as GetTodo;
 
-final IdApiService = IdApiCall();
+final idApiService = IdApiCall();
 
-class Note_create extends StatefulWidget {
-  const Note_create(
-      {Key? key, required this.token, required this.todos, required this.index})
+class note_create extends StatefulWidget {
+  const note_create(
+      {Key? key, required this.todos, required this.index})
       : super(key: key);
-  final String? token;
+
+
   final  List<GetTodo.Todo>? todos;
   final int? index;
 
   @override
-  State<Note_create> createState() => _Note_createState();
+  State<note_create> createState() => _note_createState();
 }
 
-class _Note_createState extends State<Note_create> {
+class _note_createState extends State<note_create> {
   TextEditingController descriptionController = TextEditingController();
   TextEditingController titleController = TextEditingController();
   bool isEdit = false;
+  bool isLoading = false;
+
+
+  @override
   void dispose() {
     descriptionController.dispose();
     titleController.dispose();
@@ -31,28 +38,66 @@ class _Note_createState extends State<Note_create> {
 
 
 
-  PostTodo(String title, String description, String token) async {
-    await IdApiService.httpPost(
-      'https://todoe-production.up.railway.app/todo',
-      {
-        "title": "${title}",
-        "description": "${description}",
-        "isDone": false,
-      },
-      {'Content-Type': 'application/json', 'Authorization': 'Bearer $token'},
-    );
+
+  postTodo(String title, String description,) async {
+    setState(() {
+      isLoading =true;});
+   try{
+
+     SharedPreferences prefs = await SharedPreferences.getInstance();
+     String? token = prefs.getString('LogInToken');
+
+     await idApiService.httpPost(
+     'https://todoe-production.up.railway.app/todo',
+     {
+       "title": title,
+       "description": description,
+       "isDone": false,
+     },
+     {'Content-Type': 'application/json', 'Authorization': 'Bearer $token'},
+   );
+   Navigator.pop(context);
+   }catch(e){
+
+     DioError error = e as DioError;
+     showAlertDialog(context,error.response?.data["message"],);
+   }
+    setState(() {
+      isLoading = false;
+    });
+
   }
 
-  UpdateTodo(String? Id, String title, String description, String token) async {
-    await IdApiService.httpUpdate(
-      'https://todoe-production.up.railway.app/todo/$Id',
-      {
-        "title": "${title}",
-        "description": "${description}",
-        "isDone": false,
-      },
-      {'Content-Type': 'application/json', 'Authorization': 'Bearer $token'},
-    );
+  updateTodo(String? id, String title, String description) async {
+
+
+    setState(() {
+      isLoading =true;
+    });
+    try{
+      SharedPreferences prefs = await SharedPreferences.getInstance();
+      String? token = prefs.getString('LogInToken');
+      await idApiService.httpUpdate(
+        'https://todoe-production.up.railway.app/todo/$id',
+        {
+          "title": title,
+          "description": description,
+          "isDone": false,
+        },
+        {'Content-Type': 'application/json', 'Authorization': 'Bearer $token'},
+
+      );
+      Navigator.pop(context);
+    }catch(e){
+      DioError error = e as DioError;
+      showAlertDialog(context,error.response?.data["message"],);
+    }
+
+    setState(() {
+      isLoading = false;
+    });
+
+
   }
   @override
   void initState() {
@@ -72,7 +117,7 @@ class _Note_createState extends State<Note_create> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text("Todo Note"),
+        title: const Text("Todo Note"),
       ),
       body: Padding(
         padding: EdgeInsets.all(2.h),
@@ -95,7 +140,7 @@ class _Note_createState extends State<Note_create> {
                 keyboardType: TextInputType.text,
                 decoration: InputDecoration(
                     // hintText: "Title",
-                    helperStyle: TextStyle(color: Colors.grey),
+                    helperStyle: const TextStyle(color: Colors.grey),
                     border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(15))),
               ),
@@ -116,28 +161,28 @@ class _Note_createState extends State<Note_create> {
                 keyboardType: TextInputType.text,
                 decoration: InputDecoration(
                     hintText: "Description will be here...",
-                    helperStyle: TextStyle(color: Colors.grey),
+                    helperStyle: const TextStyle(color: Colors.grey),
                     border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(15))),
               ),
               MaterialButton(
                 onPressed: () {
                   if (widget.todos != null) {
-                    UpdateTodo(
+                    updateTodo(
                       widget.todos![widget.index!].id,
                       titleController.text,
                       descriptionController.text,
-                      widget.token!,
+
                     );
                   } else {
-                    PostTodo(titleController.text, descriptionController.text, widget.token!);
+                    postTodo(titleController.text, descriptionController.text,);
                   }
                 },
-                child: Text(
+                color: Colors.blue,
+                child: const Text(
                   "Save",
                   style: TextStyle(color: Colors.white),
                 ),
-                color: Colors.blue,
               ),
             ],
           ),

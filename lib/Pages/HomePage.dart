@@ -1,23 +1,20 @@
 import 'dart:convert';
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sizer/sizer.dart';
 import 'package:todo_app/Pages/Details_page.dart';
+import 'package:todo_app/Pages/login_in_page.dart';
 import 'package:todo_app/Pages/Todo_create_page.dart';
 import 'package:todo_app/api/apiService.dart';
-import 'package:todo_app/Pages/ModelClasses/Get_Todo_List.dart' as GetTodo;
-import 'package:todo_app/Pages/ModelClasses/LoginModel.dart' as getLoginFeed;
+import 'package:todo_app/Pages/ModelClasses/Get_Todo_List.dart' as getodo;
 
-final IdApiService = IdApiCall();
+final apiService = IdApiCall();
 
 class HomePage extends StatefulWidget {
   const HomePage({
     Key? key,
-    required this.userName,
-    required this.password,
   }) : super(key: key);
-
-  final String userName;
-  final String password;
 
   @override
   State<HomePage> createState() => _HomePageState();
@@ -25,45 +22,45 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   bool isLoading = true;
-  getLoginFeed.LoginUser? UserCradential;
 
-  GetLogInData(String name, String password) async {
-    var responseLog = await IdApiService.httpPost(
-      'https://todoe-production.up.railway.app/user/login',
-      {"username": "$name", "password": "$password"},
-      {'Content-Type': 'application/json'},
-    );
-    final info = getLoginFeed.loginUserFromJson(jsonEncode(responseLog));
-    UserCradential = info;
-    print(UserCradential?.jwTtoken);
-    isLoading = false;
-    GetIdData(UserCradential!.jwTtoken!);
-    setState(() {});
+  late List<getodo.Todo> todos;
+  Future getIdData() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    String? Token = prefs.getString('LogInToken');
+
+    setState(() {
+      isLoading = true;
+    });
+    try {
+      var responseList = await apiService.httpGet(
+        'https://todoe-production.up.railway.app/todo',
+        {'Content-Type': 'application/json', 'Authorization': 'Bearer $Token'},
+      );
+      todos = getodo.todoFromJson(jsonEncode(responseList));
+    } catch (e) {
+      DioError error = e as DioError;
+      showAlertDialog(
+        context,
+        error.response?.data["message"],
+      );
+    }
+    setState(() {
+      isLoading = false;
+    });
   }
 
-  late List<GetTodo.Todo> Todos;
-  Future GetIdData(String token) async {
-    var responseList = await IdApiService.httpGet(
-      'https://todoe-production.up.railway.app/todo',
+  getIdtoDelete(String id) async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    String? token = prefs.getString('LogInToken');
+    await apiService.httpDelete(
+      'https://todoe-production.up.railway.app/todo/$id',
       {'Content-Type': 'application/json', 'Authorization': 'Bearer $token'},
-    );
-    Todos = GetTodo.todoFromJson(jsonEncode(responseList));
-
-  }
-
-  GetIdtoDelete(String Id) {
-    var responseDel = IdApiService.httpDelete(
-      'https://todoe-production.up.railway.app/todo/$Id',
-      {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer ${UserCradential?.jwTtoken}'
-      },
     );
   }
 
   @override
   void initState() {
-    GetLogInData(widget.userName, widget.password);
+    getIdData();
     super.initState();
   }
 
@@ -72,20 +69,53 @@ class _HomePageState extends State<HomePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Center(child: Text("${UserCradential!.username}'s Todo List ")),
+      drawer: Drawer(
+        // Add a ListView to the drawer. This ensures the user can scroll
+        // through the options in the drawer if there isn't enough vertical
+        // space to fit everything.
+        child: ListView(
+          // Important: Remove any padding from the ListView.
+          padding: EdgeInsets.zero,
+          children: [
+            const DrawerHeader(
+              decoration: BoxDecoration(
+                color: Colors.blue,
+              ),
+              child: Text('Drawer Header'),
+            ),
+            ListTile(
+              title: const Text('Log Out'),
+              onTap: () async {
+                SharedPreferences prefs = await SharedPreferences.getInstance();
+                prefs.remove('LogInToken');
+                Navigator.of(context).push(
+                    MaterialPageRoute(builder: (context) => const LoginPage()));
+              },
+            ),
+            // ListTile(
+            //   title: const Text('Item 2'),
+            //   onTap: () {
+            //     // Update the state of the app.
+            //     // ...
+            //   },
+            // ),
+          ],
+        ),
       ),
-      body: UserCradential == null
-          ? CircularProgressIndicator()
+      appBar: AppBar(
+        title: const Center(child: Text("Todo List ")),
+      ),
+      body: isLoading
+          ? Center(child: const CircularProgressIndicator())
           : SingleChildScrollView(
               scrollDirection: Axis.vertical,
               child: Column(
                 children: [
                   ListView.builder(
-                      physics: NeverScrollableScrollPhysics(),
+                      physics: const NeverScrollableScrollPhysics(),
                       scrollDirection: Axis.vertical,
                       shrinkWrap: true,
-                      itemCount: Todos.length,
+                      itemCount: todos.length,
                       itemBuilder: ((context, index) {
                         return Padding(
                           padding: EdgeInsets.fromLTRB(.5.h, 1.h, .5.h, 0.5.h),
@@ -98,7 +128,7 @@ class _HomePageState extends State<HomePage> {
                                   height: 0.7.h,
                                 ),
                                 Text(
-                                  "${Todos[index].title}",
+                                  "${todos[index].title}",
                                   style: TextStyle(
                                       fontWeight: FontWeight.bold,
                                       fontSize: 18.sp),
@@ -106,7 +136,7 @@ class _HomePageState extends State<HomePage> {
                                 SizedBox(
                                   height: .5.h,
                                 ),
-                                Divider(
+                                const Divider(
                                   thickness: 5,
                                   color: Colors.black,
                                 ),
@@ -118,17 +148,20 @@ class _HomePageState extends State<HomePage> {
                                       height: .5.h,
                                     ),
                                     MaterialButton(
-                                      onPressed: () {
-                                        Navigator.of(context).push(MaterialPageRoute(
-                                            builder: (context) => Note_create(
-                                              index: index,
-                                              todos:Todos,
-                                              token: UserCradential?.jwTtoken,
-                                            )));
-                                        },
-                                      child: Text(
+                                      onPressed: () async {
+                                        await Navigator.of(context).push(
+                                            MaterialPageRoute(
+                                                builder: (context) =>
+                                                    note_create(
+                                                      index: index,
+                                                      todos: todos,
+                                                    )));
+                                        getIdData();
+                                      },
+                                      child: const Text(
                                         "Update",
-                                        style: TextStyle(color: Colors.white),
+                                        style: const TextStyle(
+                                            color: Colors.white),
                                       ),
                                       color: Colors.green,
                                     ),
@@ -137,12 +170,16 @@ class _HomePageState extends State<HomePage> {
                                     ),
                                     MaterialButton(
                                       onPressed: () {
-                                        GetIdtoDelete(
-                                            Todos[index].id.toString());
+                                        getIdtoDelete(
+                                            todos[index].id.toString());
+                                        setState(() {
+                                          getIdData();
+                                        });
                                       },
-                                      child: Text(
+                                      child: const Text(
                                         "Delete",
-                                        style: TextStyle(color: Colors.white),
+                                        style: const TextStyle(
+                                            color: Colors.white),
                                       ),
                                       color: Colors.red,
                                     ),
@@ -167,24 +204,52 @@ class _HomePageState extends State<HomePage> {
                                           fontSize: 12.sp),
                                     ),
                                     Checkbox(
-                                        value: Todos[index].isDone,
-                                        onChanged: (newBool) {
-                                          setState(() {
-                                            isChecked = newBool;
-                                          });
+                                        value: todos[index].isDone,
+                                        onChanged: (newBool) async {
+                                          SharedPreferences prefs =
+                                              await SharedPreferences
+                                                  .getInstance();
+                                          String? Token =
+                                              prefs.getString('LogInToken');
+                                          await apiService.httpUpdate(
+                                            'https://todoe-production.up.railway.app/todo/${todos[index].id}',
+                                            {
+                                              "title": "${todos[index].title}",
+                                              "description":
+                                                  "${todos[index].description}",
+                                              "isDone": newBool,
+                                            },
+                                            {
+                                              'Content-Type':
+                                                  'application/json',
+                                              'Authorization': 'Bearer $Token'
+                                            },
+                                          );
+
+                                          getIdData();
+
+                                          //  isChecked = newBool;
                                         })
                                   ],
                                 ),
                                 InkWell(
                                   onTap: () {
-                                    Navigator.of(context).push(
-                                        MaterialPageRoute(
+                                    Navigator.of(context)
+                                        .push(MaterialPageRoute(
                                             builder: (context) => Details(
-                                                titleD:Todos[index].title.toString(),
-                                                descripD: Todos[index].description.toString(),
-                                                createdAtD: Todos[index].createdAt.toString(),
-                                                updatedAtD: Todos[index].updatedAt.toString(),
-                                               )));
+                                                  titleD: todos[index]
+                                                      .title
+                                                      .toString(),
+                                                  descripD: todos[index]
+                                                      .description
+                                                      .toString(),
+                                                  createdAtD: todos[index]
+                                                      .createdAt
+                                                      .toString(),
+                                                  updatedAtD: todos[index]
+                                                      .updatedAt
+                                                      .toString(),
+                                                )));
                                   },
                                   child: Container(
                                     height: 4.h,
@@ -203,7 +268,7 @@ class _HomePageState extends State<HomePage> {
                                                 fontWeight: FontWeight.bold,
                                                 fontSize: 15.sp),
                                           ),
-                                          Icon(
+                                          const Icon(
                                             Icons.arrow_forward_rounded,
                                             color: Colors.white,
                                           ),
@@ -223,20 +288,18 @@ class _HomePageState extends State<HomePage> {
               ),
             ),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: () {
-          Navigator.of(context).push(MaterialPageRoute(
-              builder: (context) => Note_create(
-                     index: null,
-                     todos:null,
-                    token: UserCradential?.jwTtoken,
+        onPressed: () async {
+          await Navigator.of(context).push(MaterialPageRoute(
+              builder: (context) => const note_create(
+                    index: null,
+                    todos: null,
                   )));
+          getIdData();
         },
-        label: Text("Note"),
+        label: const Text("Note"),
         tooltip: "Create a new Note!!",
-        icon: Icon(Icons.add),
+        icon: const Icon(Icons.add),
       ),
     );
   }
 }
-
-
