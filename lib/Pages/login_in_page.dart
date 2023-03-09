@@ -168,7 +168,7 @@ class _LoginPageState extends State<LoginPage> {
                               fontSize: 13, fontWeight: FontWeight.w600)),
                       TextButton(
                           onPressed: () {
-                            Navigator.of(context).push(MaterialPageRoute(
+                            Navigator.of(context).pushReplacement(MaterialPageRoute(
                                 builder: (context) => const Sign_up_page()));
                           },
                           child: const Text(
