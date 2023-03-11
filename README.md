@@ -4,7 +4,8 @@ A new Flutter project.
 
 ## Getting Started
 
-<h1>Flutter </h1> in  Use
+<h1>Todo list with Flutter </h1> Basic UI for Rest API testing purpose.
+
 
 <img src="https://github.com/TAUFIK2236/Todo_list/blob/master/lib/photos/Register_page.png" height="354px" width="200px" ></img>
 <img src="https://github.com/TAUFIK2236/Todo_list/blob/master/lib/photos/Login_page.png" height="354px" width="200px" ></img>
