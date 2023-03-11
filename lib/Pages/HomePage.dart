@@ -88,7 +88,7 @@ class _HomePageState extends State<HomePage> {
               onTap: () async {
                 SharedPreferences prefs = await SharedPreferences.getInstance();
                 prefs.remove('LogInToken');
-                Navigator.of(context).push(
+                Navigator.of(context).pushReplacement(
                     MaterialPageRoute(builder: (context) => const LoginPage()));
               },
             ),
