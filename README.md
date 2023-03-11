@@ -1,6 +1,6 @@
 # todo_app
 
-A new Flutter project.
+This Flutter project build for testing and learning that how to use CRUD operation in flutter mobile application.
 
 ## Getting Started
 
